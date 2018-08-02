@@ -1,70 +1,83 @@
 <template>
 <div>
-<el-card class="box-card" v-for="(datas,index) in data.data" :key="datas.id" shadow="never" :body-style="{padding:'5px 30px 10px 30px' , border:'0px'}">
+<el-card class="box-card" v-for="(datas,index) in data" :key="datas.id" shadow="never" :body-style="{padding:'5px 30px 10px 30px' , border:'0px'}">
   <div slot="header" class="clearfix">
-    <span style="font-size:13px"><strong>{{datas.createDate}}</strong></span>
-    <el-button style="float: right; padding: 3px 0; color:#909399; border:0" type="text" :plain="true" v-on:click="deletee(index)">删除</el-button>
+    <span style="font-size:13px"><strong v-text="time(datas.createDate)"></strong></span>
+    <el-button style="float: right; padding: 3px 0; color:#909399; border:0" type="text" :plain="true" v-on:click="deletee(datas.id,index)">删除</el-button>
   </div>
-  <div class="text-item" @click="readtext()">
+  <div class="text-item" @click="readtext(datas.content,datas.id,datas.uId,datas.power)">
     {{datas.txt}}
   </div>
 </el-card>
 </div>
 </template>
+
 <script>
 export default{
-   props:['msg'],
+  props:['msg'],
   data(){
     return{
-      data:''
+      data:'',
     }     
   },
    methods:{
-      deletee(index){ 
-        let _this=this; 
-        _this.$http({           
-          method:'post',
-          url:'/api/weekly/user/deleteColl.action?uId=04161111',
-          // data: {
-          //   'aId':id,
-          //   'id':uId
-          // }
-        })  
-      .then(function(res){      
-         if(res.data.status == '200'){
-          _this.data.splice(index,1);
-          _this.$message({
-          message: res.data.msg,
-          center:true
-        })
-      }
-      if(res.data.status == '0'){
-         _this.$message({
-          message: res.data.msg,
-          center:true
-        })
-      }
-    })
-      .catch(function(error){
-        console.log(error);
-      })
-    }
+      deletee(id,index){
+            let _this=this;
+            _this.$http({
+                method:'post',
+                url:'api/weekly/article/deleteArticle.action',
+                params:{
+                    'id':id,
+                }
+            })
+            .then(function(res){
+                if(res.data.status=='200'){
+                    _this.data.splice(index,1);
+                    _this.$notify({
+                        message: '删除成功！',
+                        offset: 50,
+                        type:'success',
+                        duration:2000,
+                    });
+                }
+            })
+            .catch(function(error){
+              console.log(error);
+                 _this.$notify({
+                    message: '删除失败！',
+                    offset: 50,
+                    type:'error',
+                    duration:2000,
+                });
+            })
+        },
+    time(ti){
+        return ti.substr(0,10);
+    },
+    readtext(text,id,uid,power){    //text为文章文本内容，id为文章id,uid为文章作者id
+            this.$emit('child-say',id,text,uid,power,'1');
+            this.$router.push('weekly');
+        } 
    },
     mounted(){
       let _this=this;
       _this.$http({
         method:'post',
-        url:'/api/weekly/article/getArticleList.action?uId=04161111',
-        // data:{}
+        url:'/api/weekly/article/getArticleList.action',
+        params:{
+            'uId':this.msg.xuehao,
+        }
       })
-    // 请求成功执行
     .then(function(res){
-      _this.data = res.data;
-        console.log(res);
+      _this.data = res.data.data.reverse();
     })
-    // 请求失败时执行
     .catch(function(error){
-      console.log(error);
+      _this.$notify({
+        message: '信息加载失败！',
+        offset: 50,
+        type:'error',
+        duration:2000,
+      });
     })
     }
     
