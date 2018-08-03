@@ -3,13 +3,13 @@
 <div style="border-bottom:1px solid rgb(230, 230, 230);margin-bottom:10px;padding:10px 15px;">
 <el-button  size='small' style="background-color:#f2f2f2;font-size:12px;border:1px solid #a1a1a1;color:black;" @click="back()">返回</el-button>
 <el-button v-show="replyshow" size='small' style="margin:10px;background-color:#0945C4;font-size:12px;color:white" @click="reply()">回复</el-button>
-<el-button v-show="collectshow" size='small' style="background-color:#f2f2f2;font-size:12px;border:1px solid #a1a1a1;color:black;" @click="bucollect()">{{collecttext}}</el-button>
+<el-button v-show="collectshow" size='small' style="background-color:#f2f2f2;font-size:12px;border:1px solid #a1a1a1;color:black;" @click="bucollect()" :disabled="isDisable">{{collecttext}}</el-button>
 </div >
 
 
 <div style="padding:15px;" v-show="sendshow">
 <el-input type="textarea" class="area" v-model="replymsg"></el-input>
-<el-button size='small' style="margin-top:10px;background-color:#0945C4;font-size:12px;color:white" @click="send()">发送</el-button>
+<el-button size='small' style="margin-top:10px;background-color:#0945C4;font-size:12px;color:white" @click="send()" :disabled="issend">发送</el-button>
 </div>
 
 <el-card class="box-card" shadow="never" v-for="(o,index) in replyall" :key="index" :body-style="{padding:'0px'}">
@@ -34,6 +34,8 @@ export default{
     props:['msg'],
     data(){
         return{
+            isDisable:false,
+            issend:true,
             replymsg:'',     //回复内容  
             replyall:'',     //本篇文章上所有回复内容
             uid:'',     //本篇文章作者学号
@@ -62,10 +64,15 @@ export default{
             return ti.substr(0,10);
         },
         bucollect(){
+            this.isDisable = true
+        setTimeout(() => {
+          this.isDisable = false
+        }, 1000);
             let _this =this;
             if(_this.collecttext == '收藏'){                     //根据收藏按钮状态来判断请求取消收藏或添加收藏
                 var url = 'api/weekly/user/addColl.action';
-            }else if(_this.collecttext == '已收藏'){
+            }
+            if(_this.collecttext == '已收藏'){
                 var url = 'api/weekly/user/deleteColl.action';
             }
             _this.$http({    //请求收藏接口
@@ -77,28 +84,35 @@ export default{
                 }
             })
             .then(function(res){
-                if(_this.collecttext == '收藏'){                     //根据收藏按钮状态来判断请求取消收藏或添加收藏
-                    _this.collecttext ='已收藏';
+                var sc=_this.collecttext;
+                if(sc == '收藏'){                     //根据收藏按钮状态来判断请求取消收藏或添加收藏
                     _this.$notify({
                         message: '收藏成功！',
                         offset: 50,
                         type:'success',
                         duration:2000,
                     });
+                    _this.collecttext ='已收藏';
                     _this.$emit('coll',res.data.data.collection.split(','));        //
-                }else if(_this.collecttext == '已收藏'){
-                    _this.collecttext = '收藏';
+                }
+                if(sc == '已收藏'){
                     _this.$notify({
                         message: '取消收藏成功！',
                         offset: 50,
                         type:'success',
                         duration:2000,
                     });
+                    _this.collecttext ='收藏';
                     _this.$emit('coll',res.data.data.collection.split(','));   //
                 }
             })
             .catch(function(error){
-                console.log(error);
+                _this.$notify({
+                        message: '发生未知错误！',
+                        offset: 50,
+                        type:'error',
+                        duration:2000,
+                });
             })
         },  
         send(){
@@ -128,9 +142,71 @@ export default{
                 _this.replymsg="";
             })
             .catch(function(error){
-                console.log(error);
+                 _this.$notify({
+                        message: '发送失败！',
+                        offset: 50,
+                        type:'error',
+                        duration:2000,
+                });
             })
         },
+    },
+    watch:{
+        replymsg:function(){
+            let _this=this;
+            if(_this.replymsg==""){
+                _this.issend=true;
+            }else{
+                _this.issend=false;
+            }
+        },
+        msg:function(){
+        this.power = this.msg.childmsg.power;
+        this.uid = this.msg.childmsg.uid;
+        this.id = this.msg.childmsg.id;
+        this.text = this.msg.childmsg.text;
+        this.collect=this.msg.collect;
+        let _this =this;
+        if(_this.loginuid == _this.uid){
+            _this.collectshow = false;
+        }else{
+            _this.collectshow = true;
+            for(var index=0;index<_this.collect.length;index++){
+                if(_this.collect[index]==_this.id){
+                    _this.collecttext="已收藏";
+                   break;
+                } 
+                
+            }
+        }
+        if(_this.root>0){
+            if(_this.power<0 && -_this.power==this.root){
+                _this.replyshow=true;
+            }
+            if(_this.power==_this.root){
+                _this.replyshow=true;
+            }  
+        }
+        if(_this.root<0){
+            if(_this.loginuid == _this.uid)
+            _this.replyshow=true;
+        }
+ 
+        if(_this.replyshow == true){
+           _this.$http({     //请求本篇文章上的所有回复
+                method:'post',
+                url:'api/weekly/reply/getreplyArticleListByaId.action',
+                params:{
+                    'aId':_this.id,
+                }
+            })
+            .then(function(res){
+                _this.replyall=res.data.data;
+            })
+            .catch(function(error){
+            })
+        }
+       }
     },
     mounted() {
         this.root = this.msg.roots;
@@ -147,7 +223,6 @@ export default{
             _this.collectshow = true;
             for(var index=0;index<_this.collect.length;index++){
                 if(_this.collect[index]==_this.id){
-                    console.log(_this.collect[index],_this.id);
                     _this.collecttext="已收藏";
                     break;
                 }
@@ -175,7 +250,7 @@ export default{
                 }
             })
             .then(function(res){
-                _this.replyall=res.data.data.reverse();
+                _this.replyall=res.data.data;
             })
             .catch(function(error){
             })
